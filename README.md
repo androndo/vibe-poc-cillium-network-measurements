@@ -68,11 +68,14 @@ This repository contains a script to get Cilium network metrics for specific pod
 
 ## Features
 
+- **Multiple Analysis Methods**: Provides 3 different approaches to network metrics
 - **Automatic Cilium Agent Detection**: Finds the correct Cilium agent on the same node as the pod
 - **Comprehensive Metrics**: Shows bytes sent/received, packet counts, and drop statistics
 - **Formatted Output**: Human-readable numbers with thousands separators
+- **Clear Limitations**: Explains the difference between global and pod-specific metrics
 - **Error Handling**: Validates pod existence and provides helpful error messages
 - **Cross-Namespace Support**: Works with pods in any namespace
+- **Hubble Integration**: Uses Hubble for pod-specific flow analysis when available
 
 ## Requirements
 
@@ -86,8 +89,11 @@ This repository contains a script to get Cilium network metrics for specific pod
 2. **Node Detection**: Finds which node the pod is running on
 3. **Cilium Agent Discovery**: Locates the Cilium agent on the same node
 4. **Endpoint Mapping**: Maps the pod IP to a Cilium endpoint ID
-5. **Metrics Retrieval**: Queries Cilium metrics for network statistics
-6. **Data Presentation**: Formats and displays the results
+5. **Multiple Analysis Methods**:
+   - **Method 1**: Cilium global metrics (with clear limitations)
+   - **Method 2**: Hubble flow analysis for pod-specific data
+   - **Method 3**: Container network interface statistics
+6. **Data Presentation**: Formats and displays results with clear explanations
 
 ## Metrics Explained
 
@@ -96,4 +102,8 @@ This repository contains a script to get Cilium network metrics for specific pod
 - **Drop Statistics**: Traffic that was dropped by Cilium (with reasons)
 - **Packet Counts**: Number of network packets processed
 
-This script provides a direct way to monitor network activity of specific pods using Cilium's built-in metrics, without requiring additional observability tools like Hubble.
+## Important Note
+
+⚠️ **Cilium's built-in metrics are GLOBAL, not pod-specific!** The `cilium_forward_bytes_total` metrics include traffic from ALL pods on the node plus system traffic. For true pod-specific metrics, use Hubble (Method 2) or application-level monitoring.
+
+This script provides multiple approaches to network monitoring, clearly explaining the limitations of each method.
