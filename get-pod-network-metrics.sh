@@ -94,17 +94,54 @@ if kubectl get pods -n kube-system -l k8s-app=hubble-relay >/dev/null 2>&1; then
     # Port forward Hubble relay
     kubectl -n kube-system port-forward svc/hubble-relay 4245:80 >/dev/null 2>&1 &
     HUBBLE_PID=$!
-    sleep 2
+    sleep 3
     
     # Get flows for this pod
     if command -v hubble >/dev/null 2>&1; then
-        echo "  Recent flows for $POD_NAME:"
-        hubble observe --server localhost:4245 --pod "$POD_NAME" --follow=false --limit 10 2>/dev/null | head -5 || echo "  No recent flows found"
+        echo "  🔍 Recent flows for $POD_NAME:"
+        echo "  Format: Time | Source -> Destination | Verdict | Protocol"
+        echo "  ---------------------------------------------------------"
         
-        # Try to get TCP flows with more detail
+        # Get recent flows with better formatting
+        hubble observe --server localhost:4245 --pod "$POD_NAME" --follow=false --limit 15 2>/dev/null | while read line; do
+            if [[ -n "$line" && "$line" != "EVENTS LOST:"* ]]; then
+                echo "  $line"
+            fi
+        done || echo "  No recent flows found"
+        
         echo ""
-        echo "  TCP flows (if any):"
-        hubble observe --server localhost:4245 --pod "$POD_NAME" --follow=false --output json 2>/dev/null | jq -r 'select(.flow.l4.TCP != null) | "\(.flow.time) \(.flow.source.pod_name) -> \(.flow.destination.pod_name // "external")"' | head -3 || echo "  No TCP flows found"
+        echo "  📊 Flow Statistics:"
+        
+        # Count different types of flows
+        TCP_COUNT=$(hubble observe --server localhost:4245 --pod "$POD_NAME" --follow=false --output json 2>/dev/null | jq -r 'select(.flow.l4.TCP != null) | .flow.time' | wc -l)
+        UDP_COUNT=$(hubble observe --server localhost:4245 --pod "$POD_NAME" --follow=false --output json 2>/dev/null | jq -r 'select(.flow.l4.UDP != null) | .flow.time' | wc -l)
+        FORWARDED_COUNT=$(hubble observe --server localhost:4245 --pod "$POD_NAME" --follow=false --output json 2>/dev/null | jq -r 'select(.flow.verdict == "FORWARDED") | .flow.time' | wc -l)
+        DROPPED_COUNT=$(hubble observe --server localhost:4245 --pod "$POD_NAME" --follow=false --output json 2>/dev/null | jq -r 'select(.flow.verdict == "DROPPED") | .flow.time' | wc -l)
+        
+        echo "    TCP flows: $TCP_COUNT"
+        echo "    UDP flows: $UDP_COUNT"
+        echo "    Forwarded: $FORWARDED_COUNT"
+        echo "    Dropped: $DROPPED_COUNT"
+        
+        echo ""
+        echo "  🌐 External Connections:"
+        hubble observe --server localhost:4245 --pod "$POD_NAME" --follow=false --output json 2>/dev/null | jq -r 'select(.flow.destination.pod_name == null and .flow.l4.TCP != null) | "    \(.flow.time) -> \(.flow.IP.destination):\(.flow.l4.TCP.destination_port) (\(.flow.verdict))"' | head -5 || echo "    No external connections found"
+        
+        echo ""
+        echo "  🔗 TCP Connection Flow Analysis:"
+        hubble observe --server localhost:4245 --pod "$POD_NAME" --follow=false --output json 2>/dev/null | jq -r 'select(.flow.l4.TCP != null and .flow.verdict == "FORWARDED") | "    \(.flow.time) \(.flow.source.pod_name // "external") -> \(.flow.IP.destination):\(.flow.l4.TCP.destination_port) \(.flow.l4.TCP.flags // "N/A")"' | head -8 || echo "    No TCP flows found"
+        
+        echo ""
+        echo "  📈 Flow Timeline (last 10 flows):"
+        hubble observe --server localhost:4245 --pod "$POD_NAME" --follow=false --limit 10 2>/dev/null | while read line; do
+            if [[ -n "$line" && "$line" != "EVENTS LOST:"* ]]; then
+                # Extract timestamp and flow info
+                timestamp=$(echo "$line" | awk '{print $1, $2}')
+                flow_info=$(echo "$line" | awk '{for(i=3;i<=NF;i++) printf "%s ", $i; print ""}')
+                echo "    $timestamp: $flow_info"
+            fi
+        done || echo "    No flows in timeline"
+        
     else
         echo "  ❌ Hubble CLI not found. Install with:"
         echo "     curl -L --remote-name-all https://github.com/cilium/hubble/releases/latest/download/hubble-darwin-amd64.tar.gz"
