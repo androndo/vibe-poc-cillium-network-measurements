@@ -3,3 +3,4 @@
 3. Deploy curl pod with GET request to https://httpbin.dev/range/1024
 4. Get cillium metrics about network activity of this pod. How many bytes were sent and received.
 5. Describe used query for metrics from 4.
+6. Write a script to get cillium metrics about network activity by name of a pod. I want see how many bytes were sent and received.

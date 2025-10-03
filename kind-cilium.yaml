@@ -1,0 +1,13 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  disableDefaultCNI: true   # отключаем kindnet
+  kubeProxyMode: "none"     # убираем kube-proxy
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 30007   # пробросим порт для Hubble UI
+    hostPort: 30007
+    protocol: TCP
+- role: worker
+- role: worker
